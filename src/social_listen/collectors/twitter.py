@@ -43,7 +43,7 @@ class TwitterCollector(BaseCollector):
 
         self._client = tweepy.Client(
             bearer_token=bearer_token,
-            wait_on_rate_limit=True,
+            wait_on_rate_limit=False,
         )
         return self._client
 
@@ -91,14 +91,14 @@ class TwitterCollector(BaseCollector):
                     max_results=min(tweets_per_keyword, budget_remaining),
                 )
                 budget_remaining -= count
+            except (tweepy.TooManyRequests, asyncio.TimeoutError):
+                logger.warning("Twitter rate limited or timed out, stopping this run")
+                result.errors.append("Rate limited — will retry next cycle")
+                break
             except Exception as e:
                 error_msg = str(e)
                 logger.error(f"Error searching Twitter for '{keyword}': {error_msg}")
                 result.errors.append(f"Search '{keyword}': {error_msg}")
-
-                if "429" in error_msg or "Too Many Requests" in error_msg:
-                    logger.warning("Twitter rate limited, stopping")
-                    break
 
             # Small delay between searches
             await asyncio.sleep(1)
@@ -125,16 +125,29 @@ class TwitterCollector(BaseCollector):
         if len(query) > 512:
             query = f'{keyword} -is:retweet lang:en'
 
-        response = await loop.run_in_executor(
-            None,
-            lambda: client.search_recent_tweets(
-                query=query,
-                max_results=max_results,
-                tweet_fields=["created_at", "public_metrics", "author_id"],
-                user_fields=["username", "name", "description", "public_metrics", "profile_image_url"],
-                expansions=["author_id"],
-            ),
-        )
+        try:
+            response = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None,
+                    lambda: client.search_recent_tweets(
+                        query=query,
+                        max_results=max_results,
+                        tweet_fields=["created_at", "public_metrics", "author_id"],
+                        user_fields=["username", "name", "description", "public_metrics", "profile_image_url"],
+                        expansions=["author_id"],
+                    ),
+                ),
+                timeout=15,  # 15 second timeout per search
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"Twitter search timed out for '{keyword}'")
+            raise
+        except tweepy.TooManyRequests:
+            logger.warning("Twitter rate limited (429)")
+            raise
+        except tweepy.TwitterServerError as e:
+            logger.warning(f"Twitter server error: {e}")
+            raise
 
         if not response.data:
             return 0
