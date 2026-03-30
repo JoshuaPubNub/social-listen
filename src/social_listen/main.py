@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 
 import uvicorn
 
@@ -20,10 +21,13 @@ def main() -> None:
     if env.database_path:
         config.database.path = env.database_path
 
+    # Railway (and other PaaS) set PORT env var
+    port = int(os.environ.get("PORT", config.dashboard.port))
+
     from social_listen.dashboard.app import create_app
     app = create_app(config, env)
 
-    uvicorn.run(app, host=config.dashboard.host, port=config.dashboard.port)
+    uvicorn.run(app, host="0.0.0.0", port=port)
 
 
 if __name__ == "__main__":
