@@ -111,6 +111,14 @@ class CollectionScheduler:
                 id="youtube_initial",
             )
 
+        # Initial scoring run after collectors have had time to finish
+        self.scheduler.add_job(
+            self._rescore_leads,
+            "date",
+            run_date=now + timedelta(seconds=90),
+            id="scoring_initial",
+        )
+
         self.scheduler.start()
         logger.info(
             f"Scheduler started with collectors: {list(self.collectors.keys())}"
@@ -160,6 +168,15 @@ class CollectionScheduler:
             )
 
             self._failure_counts[collector_name] = 0
+
+            # Score leads immediately after collection
+            if result.posts_found > 0 or result.leads_created > 0:
+                try:
+                    scored = await self.scorer.rescore_all()
+                    logger.info(f"Rescored {scored} leads after {collector_name} collection")
+                except Exception as e:
+                    logger.error(f"Post-collection scoring failed: {e}")
+
             logger.info(
                 f"{collector_name} collection done: "
                 f"{result.posts_found} posts, {result.leads_created} new leads"
