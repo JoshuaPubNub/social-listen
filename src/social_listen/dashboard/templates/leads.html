@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Leads - Social Listen{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-2xl font-bold text-white">Leads <span class="text-lg text-gray-400 font-normal">({{ total }})</span></h2>
+</div>
+
+<!-- Filters -->
+<div class="bg-dark-800 rounded-xl p-4 border border-dark-700 mb-6">
+    <form method="get" action="/leads" class="flex flex-wrap items-end gap-4">
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Platform</label>
+            <select name="platform" class="bg-dark-700 border border-dark-600 rounded-lg px-3 py-2 text-sm text-white">
+                <option value="">All</option>
+                <option value="twitter" {% if platform == 'twitter' %}selected{% endif %}>Twitter/X</option>
+                <option value="reddit" {% if platform == 'reddit' %}selected{% endif %}>Reddit</option>
+                <option value="youtube" {% if platform == 'youtube' %}selected{% endif %}>YouTube</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Status</label>
+            <select name="status" class="bg-dark-700 border border-dark-600 rounded-lg px-3 py-2 text-sm text-white">
+                <option value="">All</option>
+                <option value="new" {% if status == 'new' %}selected{% endif %}>New</option>
+                <option value="contacted" {% if status == 'contacted' %}selected{% endif %}>Contacted</option>
+                <option value="replied" {% if status == 'replied' %}selected{% endif %}>Replied</option>
+                <option value="ignored" {% if status == 'ignored' %}selected{% endif %}>Ignored</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Min Score</label>
+            <input type="number" name="min_score" value="{{ min_score or '' }}" step="0.1"
+                   class="bg-dark-700 border border-dark-600 rounded-lg px-3 py-2 text-sm text-white w-24"
+                   placeholder="0">
+        </div>
+        <div>
+            <label class="block text-xs text-gray-400 mb-1">Sort By</label>
+            <select name="sort" class="bg-dark-700 border border-dark-600 rounded-lg px-3 py-2 text-sm text-white">
+                <option value="score" {% if sort == 'score' %}selected{% endif %}>Score</option>
+                <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest</option>
+                <option value="name" {% if sort == 'name' %}selected{% endif %}>Name</option>
+            </select>
+        </div>
+        <button type="submit" class="bg-accent-400 text-dark-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent-500 transition-colors">
+            Filter
+        </button>
+        <a href="/leads" class="text-sm text-gray-400 hover:text-white px-3 py-2">Clear</a>
+    </form>
+</div>
+
+<!-- Leads table -->
+<div class="bg-dark-800 rounded-xl border border-dark-700">
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="text-left text-sm text-gray-400 border-b border-dark-700">
+                    <th class="px-5 py-3">Name</th>
+                    <th class="px-5 py-3">Platform(s)</th>
+                    <th class="px-5 py-3">Followers</th>
+                    <th class="px-5 py-3">Score</th>
+                    <th class="px-5 py-3">Status</th>
+                    <th class="px-5 py-3">Discovered</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lead in leads %}
+                <tr class="border-b border-dark-700 hover:bg-dark-700/50 cursor-pointer transition-colors"
+                    onclick="window.location='/leads/{{ lead.id }}'">
+                    <td class="px-5 py-3">
+                        <div class="flex items-center gap-3">
+                            {% if lead.accounts and lead.accounts[0].avatar_url %}
+                            <img src="{{ lead.accounts[0].avatar_url }}" class="w-8 h-8 rounded-full" alt="">
+                            {% else %}
+                            <div class="w-8 h-8 rounded-full bg-dark-600 flex items-center justify-center text-xs font-bold">
+                                {{ (lead.display_name or '?')[0] | upper }}
+                            </div>
+                            {% endif %}
+                            <span class="font-medium text-white">{{ lead.display_name or 'Unknown' }}</span>
+                        </div>
+                    </td>
+                    <td class="px-5 py-3">
+                        <div class="flex gap-1">
+                        {% for acc in lead.accounts %}
+                            <a href="{{ acc.profile_url }}" target="_blank" onclick="event.stopPropagation()"
+                               class="inline-block px-2 py-0.5 rounded text-xs font-medium hover:opacity-80
+                                {% if acc.platform == 'twitter' %}bg-blue-400/20 text-blue-400
+                                {% elif acc.platform == 'reddit' %}bg-orange-400/20 text-orange-400
+                                {% elif acc.platform == 'youtube' %}bg-red-400/20 text-red-400{% endif %}">
+                                {{ acc.platform }}{% if acc.username %}: {{ acc.username }}{% endif %}
+                            </a>
+                        {% endfor %}
+                        </div>
+                    </td>
+                    <td class="px-5 py-3 text-gray-300">
+                        {% for acc in lead.accounts %}
+                            {{ "{:,}".format(acc.follower_count) }}{% if not loop.last %}<br>{% endif %}
+                        {% endfor %}
+                    </td>
+                    <td class="px-5 py-3">
+                        <span class="font-semibold {% if lead.lead_score >= 50 %}text-accent-600{% elif lead.lead_score >= 25 %}text-accent-400{% else %}text-gray-300{% endif %}">
+                            {{ "%.1f"|format(lead.lead_score) }}
+                        </span>
+                    </td>
+                    <td class="px-5 py-3">
+                        <span class="inline-block px-2 py-0.5 rounded text-xs font-medium capitalize
+                            {% if lead.status == 'new' %}bg-green-400/20 text-green-400
+                            {% elif lead.status == 'contacted' %}bg-yellow-400/20 text-yellow-400
+                            {% elif lead.status == 'replied' %}bg-blue-400/20 text-blue-400
+                            {% else %}bg-gray-500/20 text-gray-400{% endif %}">
+                            {{ lead.status }}
+                        </span>
+                    </td>
+                    <td class="px-5 py-3 text-sm text-gray-400">
+                        {{ lead.first_seen_at[:10] if lead.first_seen_at else '-' }}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not leads %}
+                <tr>
+                    <td colspan="6" class="px-5 py-12 text-center text-gray-500">
+                        No leads match your filters.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="p-4 border-t border-dark-700 flex items-center justify-between">
+        <p class="text-sm text-gray-400">Page {{ page }} of {{ total_pages }}</p>
+        <div class="flex gap-2">
+            {% if page > 1 %}
+            <a href="/leads?page={{ page - 1 }}&platform={{ platform or '' }}&status={{ status or '' }}&min_score={{ min_score or '' }}&sort={{ sort }}"
+               class="px-3 py-1.5 bg-dark-700 rounded text-sm hover:bg-dark-600 transition-colors">Previous</a>
+            {% endif %}
+            {% if page < total_pages %}
+            <a href="/leads?page={{ page + 1 }}&platform={{ platform or '' }}&status={{ status or '' }}&min_score={{ min_score or '' }}&sort={{ sort }}"
+               class="px-3 py-1.5 bg-dark-700 rounded text-sm hover:bg-dark-600 transition-colors">Next</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

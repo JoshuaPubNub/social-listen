@@ -1,0 +1,43 @@
+database:
+  path: "${DATABASE_PATH:-./data/social_listen.db}"
+
+collectors:
+  twitter:
+    enabled: true
+    interval_minutes: 60
+    max_pages_per_keyword: 3
+    request_delay_seconds: 3
+    follower_threshold: 1000
+  reddit:
+    enabled: false
+    interval_minutes: 30
+    subreddits:
+      - artificial
+      - MachineLearning
+      - LocalLLaMA
+      - LLMDevs
+      - AutoGPT
+      - LangChain
+      - ChatGPTCoding
+      - singularity
+      - OpenAI
+    posts_per_keyword: 25
+    karma_threshold: 1000
+  youtube:
+    enabled: true
+    interval_hours: 6
+    daily_unit_budget: 10000
+    subscriber_threshold: 1000
+    max_results_per_search: 25
+
+scoring:
+  weights:
+    audience: 0.40
+    relevance: 0.35
+    engagement: 0.15
+    recency: 0.10
+
+dashboard:
+  host: "0.0.0.0"
+  port: 8000
+  page_size: 50

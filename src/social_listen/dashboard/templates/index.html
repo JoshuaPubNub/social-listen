@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Overview - Social Listen{% endblock %}
+
+{% block content %}
+<h2 class="text-2xl font-bold text-white mb-6">Overview</h2>
+
+<!-- Stats cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div class="bg-dark-800 rounded-xl p-5 border border-dark-700">
+        <p class="text-sm text-gray-400">Total Leads</p>
+        <p class="text-3xl font-bold text-white mt-1">{{ stats.total_leads }}</p>
+    </div>
+    <div class="bg-dark-800 rounded-xl p-5 border border-dark-700">
+        <p class="text-sm text-gray-400">Discovered Today</p>
+        <p class="text-3xl font-bold text-accent-600 mt-1">{{ stats.leads_today }}</p>
+    </div>
+    <div class="bg-dark-800 rounded-xl p-5 border border-dark-700">
+        <p class="text-sm text-gray-400">This Week</p>
+        <p class="text-3xl font-bold text-accent-500 mt-1">{{ stats.leads_this_week }}</p>
+    </div>
+    <div class="bg-dark-800 rounded-xl p-5 border border-dark-700">
+        <p class="text-sm text-gray-400">Total Posts Tracked</p>
+        <p class="text-3xl font-bold text-white mt-1">{{ stats.total_posts }}</p>
+    </div>
+</div>
+
+<!-- Platform breakdown -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div class="bg-dark-800 rounded-xl p-5 border border-dark-700">
+        <h3 class="text-lg font-semibold text-white mb-4">Leads by Platform</h3>
+        <div class="space-y-3">
+            {% for platform, count in stats.leads_by_platform.items() %}
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    {% if platform == 'twitter' %}
+                    <span class="w-3 h-3 rounded-full bg-blue-400"></span>
+                    <span>Twitter/X</span>
+                    {% elif platform == 'reddit' %}
+                    <span class="w-3 h-3 rounded-full bg-orange-400"></span>
+                    <span>Reddit</span>
+                    {% elif platform == 'youtube' %}
+                    <span class="w-3 h-3 rounded-full bg-red-400"></span>
+                    <span>YouTube</span>
+                    {% endif %}
+                </div>
+                <span class="font-semibold text-white">{{ count }}</span>
+            </div>
+            {% endfor %}
+            {% if not stats.leads_by_platform %}
+            <p class="text-gray-500 text-sm">No leads yet. Collectors will start finding leads shortly.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="bg-dark-800 rounded-xl p-5 border border-dark-700">
+        <h3 class="text-lg font-semibold text-white mb-4">Leads by Status</h3>
+        <div class="space-y-3">
+            {% for status, count in stats.leads_by_status.items() %}
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    {% if status == 'new' %}
+                    <span class="w-3 h-3 rounded-full bg-green-400"></span>
+                    {% elif status == 'contacted' %}
+                    <span class="w-3 h-3 rounded-full bg-yellow-400"></span>
+                    {% elif status == 'replied' %}
+                    <span class="w-3 h-3 rounded-full bg-blue-400"></span>
+                    {% elif status == 'ignored' %}
+                    <span class="w-3 h-3 rounded-full bg-gray-500"></span>
+                    {% endif %}
+                    <span class="capitalize">{{ status }}</span>
+                </div>
+                <span class="font-semibold text-white">{{ count }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Top leads -->
+<div class="bg-dark-800 rounded-xl border border-dark-700 mb-8">
+    <div class="p-5 border-b border-dark-700 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-white">Top Leads by Score</h3>
+        <a href="/leads?sort=score" class="text-sm text-accent-400 hover:text-accent-500">View all</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="text-left text-sm text-gray-400 border-b border-dark-700">
+                    <th class="px-5 py-3">Name</th>
+                    <th class="px-5 py-3">Platform</th>
+                    <th class="px-5 py-3">Followers</th>
+                    <th class="px-5 py-3">Score</th>
+                    <th class="px-5 py-3">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lead in top_leads %}
+                <tr class="border-b border-dark-700 hover:bg-dark-700/50 cursor-pointer" onclick="window.location='/leads/{{ lead.id }}'">
+                    <td class="px-5 py-3">
+                        <span class="font-medium text-white">{{ lead.display_name or 'Unknown' }}</span>
+                    </td>
+                    <td class="px-5 py-3">
+                        {% for acc in lead.accounts %}
+                        <span class="inline-block px-2 py-0.5 rounded text-xs font-medium
+                            {% if acc.platform == 'twitter' %}bg-blue-400/20 text-blue-400
+                            {% elif acc.platform == 'reddit' %}bg-orange-400/20 text-orange-400
+                            {% elif acc.platform == 'youtube' %}bg-red-400/20 text-red-400{% endif %}">
+                            {{ acc.platform }}
+                        </span>
+                        {% endfor %}
+                    </td>
+                    <td class="px-5 py-3 text-gray-300">
+                        {% for acc in lead.accounts %}{{ "{:,}".format(acc.follower_count) }}{% if not loop.last %} / {% endif %}{% endfor %}
+                    </td>
+                    <td class="px-5 py-3">
+                        <span class="font-semibold text-accent-400">{{ "%.1f"|format(lead.lead_score) }}</span>
+                    </td>
+                    <td class="px-5 py-3">
+                        <span class="inline-block px-2 py-0.5 rounded text-xs font-medium capitalize
+                            {% if lead.status == 'new' %}bg-green-400/20 text-green-400
+                            {% elif lead.status == 'contacted' %}bg-yellow-400/20 text-yellow-400
+                            {% elif lead.status == 'replied' %}bg-blue-400/20 text-blue-400
+                            {% else %}bg-gray-500/20 text-gray-400{% endif %}">
+                            {{ lead.status }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not top_leads %}
+                <tr>
+                    <td colspan="5" class="px-5 py-8 text-center text-gray-500">
+                        No leads discovered yet. The collectors are warming up.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Recent collection runs -->
+<div class="bg-dark-800 rounded-xl border border-dark-700">
+    <div class="p-5 border-b border-dark-700 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-white">Recent Collection Runs</h3>
+        <a href="/runs" class="text-sm text-accent-400 hover:text-accent-500">View all</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="text-left text-sm text-gray-400 border-b border-dark-700">
+                    <th class="px-5 py-3">Collector</th>
+                    <th class="px-5 py-3">Started</th>
+                    <th class="px-5 py-3">Status</th>
+                    <th class="px-5 py-3">Posts</th>
+                    <th class="px-5 py-3">New Leads</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in recent_runs %}
+                <tr class="border-b border-dark-700">
+                    <td class="px-5 py-3 capitalize font-medium text-white">{{ run.collector }}</td>
+                    <td class="px-5 py-3 text-gray-400 text-sm">{{ run.started_at }}</td>
+                    <td class="px-5 py-3">
+                        <span class="inline-block px-2 py-0.5 rounded text-xs font-medium
+                            {% if run.status == 'completed' %}bg-green-400/20 text-green-400
+                            {% elif run.status == 'running' %}bg-yellow-400/20 text-yellow-400
+                            {% elif run.status == 'failed' %}bg-red-400/20 text-red-400{% endif %}">
+                            {{ run.status }}
+                        </span>
+                    </td>
+                    <td class="px-5 py-3 text-gray-300">{{ run.posts_found }}</td>
+                    <td class="px-5 py-3 text-gray-300">{{ run.leads_created }}</td>
+                </tr>
+                {% endfor %}
+                {% if not recent_runs %}
+                <tr>
+                    <td colspan="5" class="px-5 py-8 text-center text-gray-500">
+                        No collection runs yet.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

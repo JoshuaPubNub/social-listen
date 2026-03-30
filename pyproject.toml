@@ -1,0 +1,8 @@
+[project]
+name = "social-listen"
+version = "1.0.0"
+description = "Autonomous agent for discovering AI agent enthusiasts on social media"
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+where = ["src"]

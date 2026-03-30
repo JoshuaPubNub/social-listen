@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.env
+data/*.db
+data/*.db-wal
+data/*.db-shm
+.twikit_cookies.json
+*.log
+.venv/
+venv/
+.claude/
+.DS_Store
+doc/
