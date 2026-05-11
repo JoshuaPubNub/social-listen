@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 from math import ceil
 
 from fastapi import APIRouter, Form, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
@@ -79,6 +81,40 @@ def create_router() -> APIRouter:
             "min_score": min_score,
             "sort": sort,
         })
+
+    @router.get("/leads.csv")
+    async def leads_csv(request: Request):
+        db = _get_db(request)
+        leads, _ = await db.get_leads_paginated(page=1, page_size=1_000_000, sort="score")
+
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow([
+            "id", "display_name", "lead_score", "status", "notes",
+            "first_seen_at", "last_seen_at", "platforms", "usernames",
+            "profile_urls", "follower_counts",
+        ])
+        for lead in leads:
+            accounts = await db.get_platform_accounts_for_lead(lead["id"])
+            writer.writerow([
+                lead.get("id"),
+                lead.get("display_name") or "",
+                lead.get("lead_score") or 0,
+                lead.get("status") or "",
+                lead.get("notes") or "",
+                lead.get("first_seen_at") or "",
+                lead.get("last_seen_at") or "",
+                "|".join(a.get("platform") or "" for a in accounts),
+                "|".join(a.get("username") or "" for a in accounts),
+                "|".join(a.get("profile_url") or "" for a in accounts),
+                "|".join(str(a.get("follower_count") or 0) for a in accounts),
+            ])
+        buf.seek(0)
+        return StreamingResponse(
+            iter([buf.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="leads.csv"'},
+        )
 
     @router.get("/leads/{lead_id}", response_class=HTMLResponse)
     async def lead_detail(request: Request, lead_id: int):
